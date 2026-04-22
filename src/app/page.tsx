@@ -1,5 +1,5 @@
 'use client'
-import FormaApp from '@/components/FormaApp.jsx'
+import FormaApp from '../components/FormaApp'
 
 export default function Page() {
   return <FormaApp />
