@@ -1,0 +1,190 @@
+generator client {
+    provider = "prisma-client-js"
+    binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+// NextAuth.js Models
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?  @db.Text
+  access_token       String?  @db.Text
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?  @db.Text
+  session_state      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// HR Recruitment Custom Models
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  password      String?
+  image         String?
+  role          String    @default("user") // "admin" or "user"
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+}
+
+model Job {
+  id          String   @id @default(cuid())
+  title       String
+  description String   @db.Text
+  department  String
+  location    String
+  jobType     String   // "Full-time", "Part-time", "Contract"
+  status      String   @default("active") // "active", "closed"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  applications Application[]
+
+  @@index([status])
+  @@index([department])
+}
+
+model Candidate {
+  id        String   @id @default(cuid())
+  firstName String
+  lastName  String
+  email     String
+  phone     String
+  location  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  applications Application[]
+
+  @@unique([email])
+  @@index([createdAt])
+}
+
+model Application {
+  id              String   @id @default(cuid())
+  jobId           String
+  candidateId     String
+  resumePath      String   // cloud storage path
+  coverLetter     String?  @db.Text
+  applicationDate DateTime @default(now())
+  status          String   @default("pending") // "pending", "reviewed", "shortlisted", "rejected"
+  notes           String?  @db.Text
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  job       Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, candidateId])
+  @@index([jobId])
+  @@index([candidateId])
+  @@index([status])
+}
+
+model EmailTemplate {
+  id        String   @id @default(cuid())
+  name      String
+  subject   String
+  body      String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([name])
+}
+
+model AppSetting {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model EmailLog {
+  id        String   @id @default(cuid())
+  templateId String
+  recipientEmail String
+  subject   String
+  body      String   @db.Text
+  sentAt    DateTime @default(now())
+  status    String   @default("sent") // "sent", "failed", "pending"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([recipientEmail])
+  @@index([sentAt])
+}
+
+model EmailSend {
+  id                    String   @id @default(cuid())
+  applicationId         String?  // Optional: link to application for context
+  candidateId           String   @db.VarChar(255)
+  candidateName         String
+  candidateEmail        String
+  subject               String
+  body                  String   @db.Text
+  sendType              String   // "individual", "group", "bulk", "automated"
+  templateUsed          String?  // Template name if used
+  variablesReplaced     Boolean  @default(false)
+  scheduledFor          DateTime? // When to send (null = immediate)
+  scheduleTime          String?  // "morning" (9am), "noon" (12pm), "evening" (6pm)
+  status                String   @default("pending") // "pending", "sent", "failed", "cancelled"
+  sentAt                DateTime?
+  retryCount            Int      @default(0)
+  maxRetries            Int      @default(3)
+  errorMessage          String?  @db.Text
+  isAutomated           Boolean  @default(false) // Auto-triggered (application confirmation, rejection)
+  automationTrigger     String?  // "application_confirmation", "rejection", "shortlist"
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([candidateEmail])
+  @@index([status])
+  @@index([sendType])
+  @@index([scheduledFor])
+  @@index([isAutomated])
+}
+
+model EmailOpen {
+  id          String   @id @default(cuid())
+  emailSendId String
+  candidateEmail String
+  openedAt    DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@index([candidateEmail])
+  @@index([openedAt])
+}

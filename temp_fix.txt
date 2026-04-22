@@ -1,0 +1,5 @@
+Replace:
+              <Select value={filterJob} onValueChange={setFilterJob}>
+
+With:
+              <Select value={filterJob || "all"} onValueChange={(v) => setFilterJob(v === "all" ? "" : v)}>
